@@ -61,7 +61,7 @@ pytz==2024.1
 
 # Validation
 validators==0.33.0
-pydantic==2.8.2
+pydantic==2.10.6
 
 # Background Tasks
 APScheduler==3.10.4
