@@ -1,0 +1,50 @@
+# Render Configuration
+# ====================
+# Deploy this bot to Render.com
+
+services:
+  - type: web
+    name: ultimate-link-bypass-bot
+    runtime: python
+    plan: standard
+    buildCommand: "pip install -r requirements.txt && playwright install chromium"
+    startCommand: "python main.py --webhook"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: FORCE_SUB_CHANNEL
+        sync: false
+      - key: FORCE_SUB_GROUP
+        sync: false
+      - key: LOG_CHANNEL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: WEBHOOK_ENABLED
+        value: "true"
+      - key: WEBHOOK_URL
+        sync: false
+      - key: PORT
+        value: "10000"
+      - key: FREE_DAILY_LIMIT
+        value: "5"
+      - key: REFERRAL_ENABLED
+        value: "true"
+      - key: REFERRAL_REWARD_DAYS
+        value: "3"
+    healthCheckPath: /health
+    autoDeploy: true
