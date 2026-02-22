@@ -14,8 +14,23 @@ from bypass.html_bypass import HTMLBypass
 from bypass.css_bypass import CSSBypass
 from bypass.js_bypass import JavaScriptBypass
 from bypass.cloudflare import CloudflareBypass
-from bypass.browser_bypass import BrowserBypass
-from bypass.ai_bypass import AIBypass
+
+# Optional heavy bypass methods - fail gracefully if dependencies missing
+try:
+    from bypass.browser_bypass import BrowserBypass
+    BROWSER_BYPASS_AVAILABLE = True
+except ImportError as e:
+    BROWSER_BYPASS_AVAILABLE = False
+    logger_tmp = __import__('logging').getLogger(__name__)
+    logger_tmp.warning(f"BrowserBypass unavailable: {e}")
+
+try:
+    from bypass.ai_bypass import AIBypass
+    AI_BYPASS_AVAILABLE = True
+except ImportError as e:
+    AI_BYPASS_AVAILABLE = False
+    logger_tmp = __import__('logging').getLogger(__name__)
+    logger_tmp.warning(f"AIBypass unavailable: {e}")
 from database.firebase_db import FirebaseDB
 from database.models import BypassCache
 from utils.logger import get_logger
@@ -53,9 +68,13 @@ class BypassManager:
             'css_hidden': CSSBypass(),
             'javascript': JavaScriptBypass(),
             'cloudflare': CloudflareBypass(),
-            'browser_auto': BrowserBypass(),
-            'ai_powered': AIBypass(),
         }
+        
+        # Add optional methods if available
+        if BROWSER_BYPASS_AVAILABLE:
+            self.methods['browser_auto'] = BrowserBypass()
+        if AI_BYPASS_AVAILABLE:
+            self.methods['ai_powered'] = AIBypass()
         
         # Method priority order
         self.method_priority = [
