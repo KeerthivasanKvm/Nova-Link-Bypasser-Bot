@@ -106,20 +106,43 @@ class BaseBypass(ABC):
     def __init__(self):
         """Initialize bypass method"""
         self.session = None
+        # Realistic Chrome 124 headers — rotate to avoid 403s
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'DNT': '1',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
             'Sec-Fetch-Mode': 'navigate',
             'Sec-Fetch-Site': 'none',
             'Sec-Fetch-User': '?1',
+            'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
             'Cache-Control': 'max-age=0',
+            'Priority': 'u=0, i',
         }
+        
+        # Alternative user agents for rotation
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        ]
+    
+    def _get_session(self):
+        """Create a requests session with anti-detection settings"""
+        import requests
+        import random
+        session = requests.Session()
+        headers = self.headers.copy()
+        headers['User-Agent'] = random.choice(self.user_agents)
+        session.headers.update(headers)
+        return session
     
     @abstractmethod
     async def bypass(self, url: str) -> BypassResult:
@@ -171,22 +194,11 @@ class BaseBypass(ABC):
         return bool(parsed.scheme and parsed.netloc)
     
     def _follow_redirects(self, url: str, max_redirects: int = 10) -> str:
-        """
-        Follow redirects to get final URL.
-        
-        Args:
-            url: Starting URL
-            max_redirects: Maximum redirects to follow
-            
-        Returns:
-            Final URL
-        """
-        import requests
-        
+        """Follow redirects to get final URL."""
         try:
-            response = requests.head(
+            session = self._get_session()
+            response = session.get(
                 url,
-                headers=self.headers,
                 allow_redirects=True,
                 timeout=self.TIMEOUT,
                 max_redirects=max_redirects
