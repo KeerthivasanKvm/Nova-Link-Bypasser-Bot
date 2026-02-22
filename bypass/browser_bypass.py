@@ -44,17 +44,36 @@ class BrowserBypass(BaseBypass):
         """Initialize browser instance"""
         if self.browser is None:
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--disable-gpu',
-                    '--window-size=1920,1080',
-                ]
-            )
+            try:
+                self.browser = await self.playwright.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--disable-gpu',
+                        '--window-size=1920,1080',
+                        '--disable-blink-features=AutomationControlled',
+                    ]
+                )
+            except Exception as e:
+                # Try installing browsers if not found
+                if 'Executable doesn\'t exist' in str(e):
+                    logger.warning("[Browser] Chromium not found, attempting install...")
+                    import subprocess
+                    subprocess.run(['playwright', 'install', 'chromium'], check=True)
+                    self.browser = await self.playwright.chromium.launch(
+                        headless=True,
+                        args=[
+                            '--no-sandbox',
+                            '--disable-setuid-sandbox',
+                            '--disable-dev-shm-usage',
+                            '--disable-gpu',
+                        ]
+                    )
+                else:
+                    raise
     
     async def _close_browser(self):
         """Close browser instance"""
