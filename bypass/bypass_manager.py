@@ -14,6 +14,7 @@ from bypass.html_bypass import HTMLBypass
 from bypass.css_bypass import CSSBypass
 from bypass.js_bypass import JavaScriptBypass
 from bypass.cloudflare import CloudflareBypass
+from bypass.gplinks_bypass import GPLinksbypass
 
 # Optional heavy bypass methods - fail gracefully if dependencies missing
 try:
@@ -64,6 +65,7 @@ class BypassManager:
         
         # Initialize bypass methods
         self.methods = {
+            'gplinks': GPLinksbypass(),       # Dedicated GPLinks bypass (highest priority for gplinks domains)
             'html_forms': HTMLBypass(),
             'css_hidden': CSSBypass(),
             'javascript': JavaScriptBypass(),
@@ -76,7 +78,7 @@ class BypassManager:
         if AI_BYPASS_AVAILABLE:
             self.methods['ai_powered'] = AIBypass()
         
-        # Method priority order
+        # Default method priority order
         self.method_priority = [
             'html_forms',
             'css_hidden',
@@ -85,6 +87,15 @@ class BypassManager:
             'browser_auto',
             'ai_powered',
         ]
+        
+        # Domain-specific priority overrides
+        self.domain_priority = {
+            'gplinks.co':     ['gplinks', 'cloudflare', 'browser_auto'],
+            'gplinks.in':     ['gplinks', 'cloudflare', 'browser_auto'],
+            'gplinks.online': ['gplinks', 'cloudflare', 'browser_auto'],
+            'linkshortx.in':  ['html_forms', 'css_hidden', 'javascript', 'cloudflare', 'browser_auto'],
+            'bit.ly':         ['html_forms', 'javascript', 'cloudflare'],
+        }
         
         # Statistics
         self.stats = {
@@ -137,7 +148,16 @@ class BypassManager:
                 m for m in self.method_priority if m != preferred_method
             ]
         else:
-            method_order = self.method_priority
+            # Check for domain-specific priority
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc.lower()
+            # Match domain against known overrides
+            domain_order = None
+            for d, order in self.domain_priority.items():
+                if d in domain:
+                    domain_order = order
+                    break
+            method_order = domain_order if domain_order else self.method_priority
         
         # Try each method
         for method_name in method_order:
