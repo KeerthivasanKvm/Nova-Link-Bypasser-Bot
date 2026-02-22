@@ -4,6 +4,10 @@ Ultimate Link Bypass Bot - Main Entry Point
 Start the bot in webhook or polling mode.
 """
 
+import threading
+from flask import Flask
+threading.Thread(target=lambda: Flask(__name__).run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))).start()
+
 import os
 import sys
 import asyncio
