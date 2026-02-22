@@ -29,21 +29,89 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
     
     elif data == "premium":
-        from handlers.commands import premium_command
-        # Create fake update for premium command
-        await premium_command(update, context)
+        db = context.bot_data.get('db')
+        user = update.effective_user
+        # Show premium info directly without calling command (avoids update.message = None)
+        from config import premium_config
+        premium_text = (
+            f"💎 **Premium Status**\n\n"
+            f"👤 User: {user.first_name}\n"
+            f"🆔 ID: `{user.id}`\n\n"
+            f"**Free Limits:**\n"
+            f"📊 Daily: {premium_config.FREE_DAILY_LIMIT} bypasses\n\n"
+            f"**Get Premium:**\n"
+            f"Contact admin for premium access!\n"
+            f"Use `/redeem <token>` if you have a token."
+        )
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="help")]]
+        await query.edit_message_text(
+            premium_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
     
     elif data == "stats":
-        from handlers.commands import stats_command
-        await stats_command(update, context)
+        db = context.bot_data.get('db')
+        user = update.effective_user
+        if db:
+            user_data = await db.get_user(user.id)
+            stats_text = (
+                f"📊 **Your Statistics**\n\n"
+                f"👤 Name: {user.first_name}\n"
+                f"🆔 ID: `{user.id}`\n"
+                f"💎 Premium: {'✅' if user_data and user_data.is_premium else '❌'}\n"
+                f"🔓 Total Bypasses: {user_data.total_bypasses if user_data else 0}\n"
+                f"📅 Today: {user_data.today_bypasses if user_data else 0}"
+            )
+        else:
+            stats_text = "❌ Could not load stats."
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="help")]]
+        await query.edit_message_text(
+            stats_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
     
     elif data == "help":
-        from handlers.commands import help_command
-        await help_command(update, context)
+        help_text = (
+            "🔗 **Ultimate Link Bypass Bot**\n\n"
+            "**Commands:**\n"
+            "• `/bypass <link>` - Bypass a link\n"
+            "• `B <link>` - Shortcut bypass\n"
+            "• `/premium` - Premium info\n"
+            "• `/stats` - Your stats\n"
+            "• `/referral` - Referral link\n"
+            "• `/redeem <token>` - Redeem token\n"
+            "• `/help` - Show this menu"
+        )
+        keyboard = [
+            [InlineKeyboardButton("🔓 Bypass", callback_data="bypass"),
+             InlineKeyboardButton("💎 Premium", callback_data="premium")],
+            [InlineKeyboardButton("📊 Stats", callback_data="stats"),
+             InlineKeyboardButton("👥 Referral", callback_data="referral")]
+        ]
+        await query.edit_message_text(
+            help_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
     
     elif data == "referral":
-        from handlers.commands import referral_command
-        await referral_command(update, context)
+        db = context.bot_data.get('db')
+        user = update.effective_user
+        bot_username = context.bot.username
+        referral_link = f"https://t.me/{bot_username}?start=ref_{user.id}"
+        referral_text = (
+            f"👥 **Referral System**\n\n"
+            f"Your referral link:\n`{referral_link}`\n\n"
+            f"Share this link and earn premium days!"
+        )
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="help")]]
+        await query.edit_message_text(
+            referral_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
     
     elif data.startswith("copy:"):
         url = data.split(":", 1)[1]
