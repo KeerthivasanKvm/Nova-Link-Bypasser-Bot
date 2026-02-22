@@ -175,51 +175,38 @@ class CloudflareBypass(BaseBypass):
         return None
     
     def _try_with_session(self, url: str) -> Optional[str]:
-        """
-        Try bypass using session with proper headers.
-        
-        Args:
-            url: URL to bypass
-            
-        Returns:
-            Result URL or None
-        """
+        """Try bypass using session with referer spoofing and cookie pre-loading."""
         try:
+            import requests
+            from urllib.parse import urlparse
+            
+            parsed = urlparse(url)
+            domain = f"{parsed.scheme}://{parsed.netloc}"
+            
             session = requests.Session()
             
-            # Use realistic headers
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Sec-Fetch-User': '?1',
-                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
-                'Cache-Control': 'max-age=0',
-            }
+            # Step 1: Visit the homepage first to get cookies (mimics real browser)
+            try:
+                session.get(domain, headers=self.headers, timeout=10)
+            except Exception:
+                pass
             
-            # First request to get cookies
+            # Step 2: Set Referer to look like we came from Google
+            headers = self.headers.copy()
+            headers['Referer'] = 'https://www.google.com/'
+            headers['Origin'] = domain
+            
+            # Step 3: Request with cookies + referer
             response = session.get(url, headers=headers, timeout=self.TIMEOUT)
-            
-            # If we got a challenge, wait and retry
-            if self._is_cloudflare_challenge(response.text):
-                time.sleep(5)  # Wait for challenge to complete
-                response = session.get(url, headers=headers, timeout=self.TIMEOUT)
             
             if response.status_code == 200 and not self._is_cloudflare_challenge(response.text):
                 result = self._extract_link(response.text, response.url)
                 if result:
                     return result
-                return response.url
-                
+                # Return final URL after redirects if it changed
+                if response.url != url:
+                    return response.url
+                    
         except Exception as e:
             logger.debug(f"Session bypass failed: {e}")
         
