@@ -88,10 +88,10 @@ async def main():
     try:
         if use_webhook:
             logger.info("🌐 Starting in Webhook mode...")
-            run_webhook_mode(bot)
+            await run_webhook_mode(bot)
         else:
             logger.info("🔄 Starting in Polling mode...")
-            run_polling_mode(bot)
+            await run_polling_mode(bot)
             
     except KeyboardInterrupt:
         logger.info("\n🛑 Bot stopped by user")
