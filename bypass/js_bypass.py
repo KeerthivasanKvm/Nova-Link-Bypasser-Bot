@@ -7,9 +7,16 @@ Bypass for JavaScript-protected links.
 import re
 import json
 import time
-import execjs
 from typing import Optional, List, Dict, Any
 from urllib.parse import urljoin, unquote
+
+# Optional execjs - requires Node.js on server
+# If not available, JS execution is skipped but all regex-based methods still work
+try:
+    import execjs
+    EXECJS_AVAILABLE = True
+except ImportError:
+    EXECJS_AVAILABLE = False
 
 import requests
 from bs4 import BeautifulSoup
@@ -205,14 +212,12 @@ class JavaScriptBypass(BaseBypass):
     def _safe_execute_js(self, js_code: str, base_url: str) -> Optional[str]:
         """
         Safely execute JavaScript code.
-        
-        Args:
-            js_code: JavaScript code
-            base_url: Base URL
-            
-        Returns:
-            Result URL or None
+        Requires Node.js + PyExecJS. Skipped gracefully if not available.
         """
+        if not EXECJS_AVAILABLE:
+            logger.debug("[JS] execjs not available (Node.js not installed), skipping JS execution")
+            return None
+        
         try:
             # Create a minimal context
             context = execjs.compile(f"""
