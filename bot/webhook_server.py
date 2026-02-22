@@ -12,6 +12,21 @@ from flask import Flask, request, jsonify, Response
 from threading import Thread
 from typing import Optional
 
+
+def _run_async(coro):
+    """Helper to run async code from sync Flask routes."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, coro)
+                return future.result()
+        else:
+            return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
+
 from config import webhook_config, bot_config
 from utils.logger import get_logger
 
@@ -59,7 +74,7 @@ def create_webhook_app(bot_instance) -> Flask:
                 logger.debug(f"Received webhook update: {update_data.get('update_id')}")
                 
                 # Process update asynchronously
-                asyncio.run(bot_instance.process_webhook_update(update_data))
+                _run_async(bot_instance.process_webhook_update(update_data))
                 
                 return Response('OK', status=200)
                 
@@ -99,7 +114,7 @@ def create_webhook_app(bot_instance) -> Flask:
         
         try:
             url = request.json.get('url', webhook_config.WEBHOOK_URL)
-            success = asyncio.run(bot_instance.setup_webhook(url))
+            success = _run_async(bot_instance.setup_webhook(url))
             return jsonify({'success': success})
         except Exception as e:
             logger.error(f"Set webhook error: {e}")
@@ -113,7 +128,7 @@ def create_webhook_app(bot_instance) -> Flask:
             return Response('Unauthorized', status=401)
         
         try:
-            asyncio.run(bot_instance.delete_webhook())
+            _run_async(bot_instance.delete_webhook())
             return jsonify({'success': True})
         except Exception as e:
             logger.error(f"Delete webhook error: {e}")
@@ -187,7 +202,7 @@ class WebhookServer:
         logger.info("✅ Webhook server stopped")
 
 
-def run_webhook_mode(bot_instance) -> None:
+async def run_webhook_mode(bot_instance) -> None:
     """
     Run bot in webhook mode.
     
@@ -195,14 +210,14 @@ def run_webhook_mode(bot_instance) -> None:
         bot_instance: UltimateBypassBot instance
     """
     # Initialize bot
-    success = asyncio.run(bot_instance.initialize())
+    success = await bot_instance.initialize()
     if not success:
         logger.error("❌ Bot initialization failed!")
         return
     
     # Setup webhook
     webhook_url = f"{webhook_config.WEBHOOK_URL}{webhook_config.WEBHOOK_PATH}"
-    success = asyncio.run(bot_instance.setup_webhook(webhook_url))
+    success = await bot_instance.setup_webhook(webhook_url)
     if not success:
         logger.error("❌ Webhook setup failed!")
         return
@@ -214,35 +229,39 @@ def run_webhook_mode(bot_instance) -> None:
     logger.info("🤖 Bot is running in webhook mode!")
     logger.info(f"🔗 Webhook URL: {webhook_url}")
 
+    # Keep running
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("🛑 Stopping bot...")
 
-def run_polling_mode(bot_instance) -> None:
+
+async def run_polling_mode(bot_instance) -> None:
     """
     Run bot in polling mode.
     
     Args:
         bot_instance: UltimateBypassBot instance
     """
-    async def run():
-        # Initialize bot
-        success = await bot_instance.initialize()
-        if not success:
-            logger.error("❌ Bot initialization failed!")
-            return
-        
-        # Delete any existing webhook
-        await bot_instance.delete_webhook()
-        
-        # Start polling
-        await bot_instance.start_polling()
-        
-        logger.info("🤖 Bot is running in polling mode!")
-        
-        # Keep running
-        try:
-            while True:
-                await asyncio.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("🛑 Stopping bot...")
-            await bot_instance.stop_polling()
+    # Initialize bot
+    success = await bot_instance.initialize()
+    if not success:
+        logger.error("❌ Bot initialization failed!")
+        return
     
-    asyncio.run(run())
+    # Delete any existing webhook
+    await bot_instance.delete_webhook()
+    
+    # Start polling
+    await bot_instance.start_polling()
+    
+    logger.info("🤖 Bot is running in polling mode!")
+    
+    # Keep running
+    try:
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("🛑 Stopping bot...")
+        await bot_instance.stop_polling()
