@@ -1,12 +1,8 @@
 """
 Ultimate Link Bypass Bot - Main Entry Point
 ===========================================
-Start the bot in webhook or polling mode.
+Start the bot in polling mode.
 """
-
-import threading
-from flask import Flask
-threading.Thread(target=lambda: Flask(__name__).run(host='0.0.0.0', port=int(os.environ.get('PORT', 10000)))).start()
 
 import os
 import sys
@@ -40,55 +36,55 @@ def print_banner():
 def check_environment():
     """Check if all required environment variables are set"""
     validation = validate_config()
-    
+
     if not all(validation.values()):
-        print("\n❌ **Configuration Error!**\n")
+        print("\n❌ Configuration Error!\n")
         print("Missing required configuration:")
-        
         for key, value in validation.items():
             status = "✅" if value else "❌"
             print(f"  {status} {key}")
-        
         print("\nPlease check your .env file and try again.")
         return False
-    
+
     return True
 
 
 async def main():
     """Main entry point"""
-    # Parse arguments
     parser = argparse.ArgumentParser(description='Ultimate Link Bypass Bot')
-    parser.add_argument(
-        '--polling',
-        action='store_true',
-        help='Run in polling mode (default: webhook if configured)'
-    )
-    parser.add_argument(
-        '--webhook',
-        action='store_true',
-        help='Run in webhook mode'
-    )
+    parser.add_argument('--polling', action='store_true',
+                        help='Run in polling mode (default: webhook if configured)')
+    parser.add_argument('--webhook', action='store_true',
+                        help='Run in webhook mode')
     args = parser.parse_args()
-    
-    # Print banner
+
     print_banner()
-    
-    # Check environment
+
     if not check_environment():
         sys.exit(1)
-    
+
     # Get bot instance
     bot = get_bot()
-    
+
+    # ── CONFLICT FIX ──────────────────────────────────────────
+    # Delete any existing webhook and drop pending updates.
+    # This kills any old bot instance that may still be polling,
+    # preventing the 409 Conflict error on Render redeploys.
+    try:
+        await bot.application.bot.delete_webhook(drop_pending_updates=True)
+        logger.info("✅ Webhook deleted — old instances cleared")
+    except Exception as e:
+        logger.warning(f"delete_webhook failed (non-fatal): {e}")
+    # ──────────────────────────────────────────────────────────
+
     # Determine mode
     use_webhook = webhook_config.WEBHOOK_ENABLED and webhook_config.WEBHOOK_URL
-    
+
     if args.polling:
         use_webhook = False
     elif args.webhook:
         use_webhook = True
-    
+
     try:
         if use_webhook:
             logger.info("🌐 Starting in Webhook mode...")
@@ -96,7 +92,7 @@ async def main():
         else:
             logger.info("🔄 Starting in Polling mode...")
             await run_polling_mode(bot)
-            
+
     except KeyboardInterrupt:
         logger.info("\n🛑 Bot stopped by user")
     except Exception as e:
