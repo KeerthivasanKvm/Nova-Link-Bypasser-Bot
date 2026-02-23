@@ -15,6 +15,7 @@ from bypass.css_bypass import CSSBypass
 from bypass.js_bypass import JavaScriptBypass
 from bypass.cloudflare import CloudflareBypass
 from bypass.gplinks_bypass import GPLinksbypass
+from bypass.universal_bypass import UniversalBypass
 
 # Optional heavy bypass methods - fail gracefully if dependencies missing
 try:
