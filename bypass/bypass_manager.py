@@ -33,6 +33,7 @@ except ImportError as e:
     AI_BYPASS_AVAILABLE = False
     logger_tmp = __import__('logging').getLogger(__name__)
     logger_tmp.warning(f"AIBypass unavailable: {e}")
+
 from database.firebase_db import FirebaseDB
 from database.models import BypassCache
 from utils.logger import get_logger
@@ -54,71 +55,57 @@ class BypassManager:
     Central manager for all bypass methods.
     Handles method selection, caching, and fallback.
     """
-    
+
     def __init__(self, db: FirebaseDB):
-        """
-        Initialize bypass manager.
-        
-        Args:
-            db: Firebase database instance
-        """
         self.db = db
-        
+
         # Initialize bypass methods
-        
         self.methods = {
-            'gplinks':      GPLinksbypass(),
-         #'toonworld4all': ToonWorld4AllBypass(),
-            'html_forms':   HTMLBypass(),
-            'css_hidden':   CSSBypass(),
-            'javascript':   JavaScriptBypass(),
-            'cloudflare':   CloudflareBypass(),
-            'universal':    UniversalBypass(),   # handles all remaining shorteners
+            'gplinks':    GPLinksbypass(),
+            'html_forms': HTMLBypass(),
+            'css_hidden': CSSBypass(),
+            'javascript': JavaScriptBypass(),
+            'cloudflare': CloudflareBypass(),
+            'universal':  UniversalBypass(),
         }
-       # self.methods = {
-            #'gplinks': GPLinksbypass(),       # Dedicated GPLinks bypass (highest priority for gplinks domains)
-            #'html_forms': HTMLBypass(),
-            #'css_hidden': CSSBypass(),
-            #'javascript': JavaScriptBypass(),
-            #'cloudflare': CloudflareBypass(),
-        
-        
+
         # Add optional methods if available
         if BROWSER_BYPASS_AVAILABLE:
             self.methods['browser_auto'] = BrowserBypass()
         if AI_BYPASS_AVAILABLE:
             self.methods['ai_powered'] = AIBypass()
-        
+
         # Default method priority order
         self.method_priority = [
-    'html_forms',
-    'css_hidden',
-    'javascript',
-    'cloudflare',
-    'browser_auto',
-    'ai_powered',
-    'universal',    # ← catches everything else
-]
+            'html_forms',
+            'css_hidden',
+            'javascript',
+            'cloudflare',
+            'browser_auto',
+            'ai_powered',
+            'universal',
+        ]
 
-self.domain_priority = {
-    'gplinks.co':              ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
-    'gplinks.in':              ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
-    'gplinks.online':          ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
-    'toonworld4all.me':        ['toonworld4all', 'universal', 'browser_auto'],
-    'archive.toonworld4all.me':['toonworld4all', 'universal', 'browser_auto'],
-    'linkshortx.in':           ['html_forms',   'css_hidden', 'javascript', 'cloudflare', 'universal'],
-    'bit.ly':                  ['universal',    'html_forms', 'javascript'],
-    'ouo.press':               ['universal'],
-    'ouo.io':                  ['universal'],
-    'adf.ly':                  ['universal'],
-    'droplink.co':             ['universal'],
-    'linkvertise.com':         ['universal'],
-    'shareus.io':              ['universal'],
-    'mediafire.com':           ['universal'],
-    'gofile.io':               ['universal'],
-    'drive.google.com':        ['universal'],
+        # Domain-specific priority overrides
+        self.domain_priority = {
+            'gplinks.co':               ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
+            'gplinks.in':               ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
+            'gplinks.online':           ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
+            'toonworld4all.me':         ['universal',  'browser_auto'],
+            'archive.toonworld4all.me': ['universal',  'browser_auto'],
+            'linkshortx.in':            ['html_forms', 'css_hidden', 'javascript', 'cloudflare', 'universal'],
+            'bit.ly':                   ['universal',  'html_forms', 'javascript'],
+            'ouo.press':                ['universal'],
+            'ouo.io':                   ['universal'],
+            'adf.ly':                   ['universal'],
+            'droplink.co':              ['universal'],
+            'linkvertise.com':          ['universal'],
+            'shareus.io':               ['universal'],
+            'mediafire.com':            ['universal'],
+            'gofile.io':                ['universal'],
+            'drive.google.com':         ['universal'],
         }
-        
+
         # Statistics
         self.stats = {
             'total_attempts': 0,
@@ -126,28 +113,16 @@ self.domain_priority = {
             'failed_bypasses': 0,
             'cache_hits': 0,
         }
-    
+
     async def bypass(
         self,
         url: str,
         skip_cache: bool = False,
         preferred_method: Optional[str] = None
     ) -> BypassResult:
-        """
-        Attempt to bypass a URL using all available methods.
-        
-        Args:
-            url: URL to bypass
-            skip_cache: Skip cache lookup
-            preferred_method: Preferred bypass method
-            
-        Returns:
-            BypassResult
-        """
         start_time = time.time()
-        
         logger.info(f"[Manager] Starting bypass for: {url}")
-        
+
         # Check cache first
         if not skip_cache:
             cached_result = await self._check_cache(url)
@@ -160,39 +135,36 @@ self.domain_priority = {
                     execution_time=time.time() - start_time,
                     metadata={'cached': True}
                 )
-        
-        # Track attempts
+
         attempts: List[BypassAttempt] = []
-        
+
         # Determine method order
         if preferred_method and preferred_method in self.methods:
             method_order = [preferred_method] + [
                 m for m in self.method_priority if m != preferred_method
             ]
         else:
-            # Check for domain-specific priority
             from urllib.parse import urlparse
             domain = urlparse(url).netloc.lower()
-            # Match domain against known overrides
             domain_order = None
             for d, order in self.domain_priority.items():
                 if d in domain:
                     domain_order = order
                     break
             method_order = domain_order if domain_order else self.method_priority
-        
+
         # Try each method
         for method_name in method_order:
             method = self.methods.get(method_name)
             if not method:
                 continue
-            
+
             method_start = time.time()
-            
+
             try:
                 logger.info(f"[Manager] Trying {method_name}...")
                 result = await method.bypass(url)
-                
+
                 method_time = time.time() - method_start
                 attempts.append(BypassAttempt(
                     method=method_name,
@@ -200,32 +172,21 @@ self.domain_priority = {
                     execution_time=method_time,
                     error=result.error_message
                 ))
-                
+
                 if result.success and result.url:
-                    # Success! Cache and return
                     await self._cache_result(url, result)
-                    
-                    # Update stats
                     self.stats['total_attempts'] += len(attempts)
                     self.stats['successful_bypasses'] += 1
-                    
-                    # Add attempts to metadata
                     result.metadata['attempts'] = [
-                        {
-                            'method': a.method,
-                            'success': a.success,
-                            'time': a.execution_time
-                        }
+                        {'method': a.method, 'success': a.success, 'time': a.execution_time}
                         for a in attempts
                     ]
                     result.metadata['total_time'] = time.time() - start_time
-                    
                     logger.info(f"[Manager] Success with {method_name}: {result.url}")
                     return result
-                
                 else:
                     logger.debug(f"[Manager] {method_name} failed: {result.error_message}")
-            
+
             except Exception as e:
                 method_time = time.time() - method_start
                 attempts.append(BypassAttempt(
@@ -235,68 +196,39 @@ self.domain_priority = {
                     error=str(e)
                 ))
                 logger.error(f"[Manager] {method_name} error: {e}")
-        
+
         # All methods failed
         self.stats['total_attempts'] += len(attempts)
         self.stats['failed_bypasses'] += 1
-        
         total_time = time.time() - start_time
-        
-        # Build error message from attempts
-        error_details = '\n'.join([
-            f"• {a.method}: {a.error or 'Failed'}"
-            for a in attempts
-        ])
-        
+        error_details = '\n'.join([f"• {a.method}: {a.error or 'Failed'}" for a in attempts])
         logger.warning(f"[Manager] All methods failed for: {url}")
-        
+
         return BypassResult.failed_result(
             error_message=f"All bypass methods failed:\n{error_details}",
             method='all',
             execution_time=total_time,
             status=BypassStatus.FAILED
         )
-    
+
     async def _check_cache(self, url: str) -> Optional[str]:
-        """
-        Check if URL is in cache.
-        
-        Args:
-            url: URL to check
-            
-        Returns:
-            Cached URL or None
-        """
         try:
             url_hash = BypassCache.hash_url(url)
             cache = await self.db.get_bypass_cache(url_hash)
-            
             if cache and cache.success:
-                # Update access stats
                 cache.access()
                 await self.db.set_bypass_cache(cache)
                 return cache.bypassed_url
-            
             return None
-            
         except Exception as e:
             logger.error(f"Cache check failed: {e}")
             return None
-    
+
     async def _cache_result(self, original_url: str, result: BypassResult) -> None:
-        """
-        Cache successful bypass result.
-        
-        Args:
-            original_url: Original URL
-            result: Bypass result
-        """
         try:
             from urllib.parse import urlparse
-            
             url_hash = BypassCache.hash_url(original_url)
             domain = urlparse(original_url).netloc
-            
             cache = BypassCache(
                 url_hash=url_hash,
                 original_url=original_url,
@@ -305,20 +237,12 @@ self.domain_priority = {
                 success=True,
                 domain=domain
             )
-            
             await self.db.set_bypass_cache(cache)
             logger.debug(f"Cached result for: {original_url}")
-            
         except Exception as e:
             logger.error(f"Failed to cache result: {e}")
-    
+
     def get_method_info(self) -> List[Dict[str, Any]]:
-        """
-        Get information about all methods.
-        
-        Returns:
-            List of method info dicts
-        """
         info = []
         for name, method in self.methods.items():
             info.append({
@@ -328,20 +252,13 @@ self.domain_priority = {
                 'supported_domains': method.SUPPORTED_DOMAINS or 'All'
             })
         return sorted(info, key=lambda x: x['priority'])
-    
+
     def get_stats(self) -> Dict[str, Any]:
-        """
-        Get bypass statistics.
-        
-        Returns:
-            Statistics dict
-        """
         total = self.stats['total_attempts']
         success_rate = (
             (self.stats['successful_bypasses'] / total * 100)
             if total > 0 else 0
         )
-        
         return {
             'total_attempts': total,
             'successful_bypasses': self.stats['successful_bypasses'],
@@ -349,37 +266,18 @@ self.domain_priority = {
             'cache_hits': self.stats['cache_hits'],
             'success_rate': f"{success_rate:.1f}%"
         }
-    
+
     async def test_method(self, url: str, method_name: str) -> BypassResult:
-        """
-        Test a specific bypass method.
-        
-        Args:
-            url: URL to test
-            method_name: Method to test
-            
-        Returns:
-            BypassResult
-        """
         method = self.methods.get(method_name)
         if not method:
             return BypassResult.failed_result(
                 error_message=f"Method {method_name} not found",
                 method=method_name
             )
-        
         return await method.bypass(url)
-    
+
     async def clear_cache(self) -> bool:
-        """
-        Clear all bypass cache.
-        
-        Returns:
-            True if cleared successfully
-        """
         try:
-            # This would require iterating through all cache entries
-            # For now, just log the request
             logger.info("Cache clear requested")
             return True
         except Exception as e:
