@@ -65,13 +65,23 @@ class BypassManager:
         self.db = db
         
         # Initialize bypass methods
+        
         self.methods = {
-            'gplinks': GPLinksbypass(),       # Dedicated GPLinks bypass (highest priority for gplinks domains)
-            'html_forms': HTMLBypass(),
-            'css_hidden': CSSBypass(),
-            'javascript': JavaScriptBypass(),
-            'cloudflare': CloudflareBypass(),
+            'gplinks':      GPLinksbypass(),
+         #'toonworld4all': ToonWorld4AllBypass(),
+            'html_forms':   HTMLBypass(),
+            'css_hidden':   CSSBypass(),
+            'javascript':   JavaScriptBypass(),
+            'cloudflare':   CloudflareBypass(),
+            'universal':    UniversalBypass(),   # handles all remaining shorteners
         }
+       # self.methods = {
+            #'gplinks': GPLinksbypass(),       # Dedicated GPLinks bypass (highest priority for gplinks domains)
+            #'html_forms': HTMLBypass(),
+            #'css_hidden': CSSBypass(),
+            #'javascript': JavaScriptBypass(),
+            #'cloudflare': CloudflareBypass(),
+        
         
         # Add optional methods if available
         if BROWSER_BYPASS_AVAILABLE:
@@ -81,21 +91,32 @@ class BypassManager:
         
         # Default method priority order
         self.method_priority = [
-            'html_forms',
-            'css_hidden',
-            'javascript',
-            'cloudflare',
-            'browser_auto',
-            'ai_powered',
-        ]
-        
-        # Domain-specific priority overrides
-        self.domain_priority = {
-            'gplinks.co':     ['gplinks', 'cloudflare', 'browser_auto'],
-            'gplinks.in':     ['gplinks', 'cloudflare', 'browser_auto'],
-            'gplinks.online': ['gplinks', 'cloudflare', 'browser_auto'],
-            'linkshortx.in':  ['html_forms', 'css_hidden', 'javascript', 'cloudflare', 'browser_auto'],
-            'bit.ly':         ['html_forms', 'javascript', 'cloudflare'],
+    'html_forms',
+    'css_hidden',
+    'javascript',
+    'cloudflare',
+    'browser_auto',
+    'ai_powered',
+    'universal',    # ← catches everything else
+]
+
+self.domain_priority = {
+    'gplinks.co':              ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
+    'gplinks.in':              ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
+    'gplinks.online':          ['gplinks',       'universal', 'cloudflare', 'browser_auto'],
+    'toonworld4all.me':        ['toonworld4all', 'universal', 'browser_auto'],
+    'archive.toonworld4all.me':['toonworld4all', 'universal', 'browser_auto'],
+    'linkshortx.in':           ['html_forms',   'css_hidden', 'javascript', 'cloudflare', 'universal'],
+    'bit.ly':                  ['universal',    'html_forms', 'javascript'],
+    'ouo.press':               ['universal'],
+    'ouo.io':                  ['universal'],
+    'adf.ly':                  ['universal'],
+    'droplink.co':             ['universal'],
+    'linkvertise.com':         ['universal'],
+    'shareus.io':              ['universal'],
+    'mediafire.com':           ['universal'],
+    'gofile.io':               ['universal'],
+    'drive.google.com':        ['universal'],
         }
         
         # Statistics
