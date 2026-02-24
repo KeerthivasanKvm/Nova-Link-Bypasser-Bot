@@ -5,6 +5,7 @@ Link bypass methods for various protection types.
 """
 
 from .base_bypass import BaseBypass, BypassResult
+from .proxy_manager import ProxyManager, proxy_manager
 from .html_bypass import HTMLBypass
 from .css_bypass import CSSBypass
 from .js_bypass import JavaScriptBypass
@@ -27,6 +28,8 @@ except ImportError:
 __all__ = [
     'BaseBypass',
     'BypassResult',
+    'ProxyManager',
+    'proxy_manager',
     'HTMLBypass',
     'CSSBypass',
     'JavaScriptBypass',
