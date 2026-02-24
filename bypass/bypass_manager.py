@@ -77,23 +77,24 @@ class BypassManager:
 
         # Default method priority order
         self.method_priority = [
-            'html_forms',
+            'universal',      # 1st — universal bypass (handles 50+ shorteners)
+            'gplinks',        # 2nd — dedicated gplinks bypass
+            'html_forms',     # 3rd
             'css_hidden',
             'javascript',
             'cloudflare',
             'browser_auto',
             'ai_powered',
-            'universal',
         ]
 
         # Domain-specific priority overrides
         self.domain_priority = {
-            'gplinks.co':               ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
-            'gplinks.in':               ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
-            'gplinks.online':           ['gplinks',    'universal', 'cloudflare', 'browser_auto'],
+            'gplinks.co':               ['universal', 'gplinks', 'cloudflare', 'browser_auto'],
+            'gplinks.in':               ['universal', 'gplinks', 'cloudflare', 'browser_auto'],
+            'gplinks.online':           ['universal', 'gplinks', 'cloudflare', 'browser_auto'],
             'toonworld4all.me':         ['universal',  'browser_auto'],
             'archive.toonworld4all.me': ['universal',  'browser_auto'],
-            'linkshortx.in':            ['html_forms', 'css_hidden', 'javascript', 'cloudflare', 'universal'],
+            'linkshortx.in':            ['universal', 'html_forms', 'css_hidden', 'javascript', 'cloudflare'],
             'bit.ly':                   ['universal',  'html_forms', 'javascript'],
             'ouo.press':                ['universal'],
             'ouo.io':                   ['universal'],
